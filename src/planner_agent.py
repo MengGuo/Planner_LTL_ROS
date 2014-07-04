@@ -4,7 +4,7 @@ import numpy
 import Queue
 roslib.load_manifest('ltl3')
 import rospy
-from ltl3.msg import pose, activity, confirmation
+from ltl3.msg import pose, activity, confirmation, knowledge
 from math import sqrt, cos, sin, radians
 import numpy
 from init import *
@@ -17,6 +17,7 @@ ac_POSE   = Queue.Queue(5)
 POSE = [0, 0, 0]
 
 confirm   = ['none', 0]
+object_name = None
 
 def distance(pose1, pose2):
     return sqrt( (pose1[0]-pose2[0])**2+(pose1[1]-pose2[1])**2 )
@@ -42,6 +43,11 @@ def confirm_callback(data):
     done = data.done
     confirm = [name, done]
     print "confirm", confirm
+
+def knowledge_callback(data):
+    global object_name
+    object_name = data.object
+    print 'object [', object_name, '] detected!'
 
 def median_filter(raw_pose):
     list_pose = list(raw_pose.queue)
@@ -78,6 +84,7 @@ def planner(letter, ts, act, task):
     ###### subscribe to
     rospy.Subscriber('cur_pose_%s' %letter, pose, pose_callback)
     rospy.Subscriber('activity_done_%s' %letter, confirmation, confirm_callback)
+    rospy.Subscriber('knowledge_%s' %letter, knowledge, knowledge_callback)
     ####### agent information
     c = 0
     k = 0
@@ -90,9 +97,14 @@ def planner(letter, ts, act, task):
     while not rospy.is_shutdown():
         while not POSE:
             rospy.sleep(0.1)
+        planner.cur_pose = POSE[0:2]
         next_activity_bowser = activity()
         next_activity = activity()
         ###############  check for knowledge udpate
+        if object_name:
+            # konwledge detected
+            planner.update(object_name)
+            planner.replan()
         ############### send next move
         next_move = planner.next_move
         ############### implement next activity
@@ -119,9 +131,7 @@ def planner(letter, ts, act, task):
                 activity_pub.publish(next_activity)
                 rospy.sleep(0.5)
             print 'Agent %s: waypoint (%d,%d) reached!' %(letter, next_move[0], next_move[1])
-        k = k + 1
-        if (k>=len(PLAN)):
-            break
+        planner.find_next_move()
 
 def planner_agent(agent_letter):
     if agent_letter in init:

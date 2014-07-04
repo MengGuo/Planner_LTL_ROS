@@ -50,6 +50,7 @@ add_message_files(
    activity.msg
    confirmation.msg
    pose.msg
+   knowledge.msg
  )
 
 ## Generate services in the 'srv' folder
