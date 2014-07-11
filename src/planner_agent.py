@@ -104,6 +104,7 @@ def planner(letter, ts, act, task):
         if object_name:
             # konwledge detected
             planner.update(object_name)
+            print 'Agent %s: object incorporated in map!' %(letter,)
             planner.replan()
         ############### send next move
         next_move = planner.next_move
@@ -131,7 +132,7 @@ def planner(letter, ts, act, task):
                 activity_pub.publish(next_activity)
                 rospy.sleep(0.5)
             print 'Agent %s: waypoint (%d,%d) reached!' %(letter, next_move[0], next_move[1])
-        planner.find_next_move()
+        planner.trace.append(planner.find_next_move())
 
 def planner_agent(agent_letter):
     if agent_letter in init:

@@ -5,6 +5,10 @@ from collections import defaultdict
 from networkx import dijkstra_predecessor_and_distance
 import time 
 
+
+#===========================================
+#optimal initial synthesis
+#===========================================
 def dijkstra_plan_networkX(product, beta=10):
 	# requires a full construct of product automaton
 	start = time.time()
@@ -43,12 +47,13 @@ def dijkstra_plan_networkX(product, beta=10):
 	print 'no accepting run found in optimal planning!'
 
 
-def dijkstra_plan_optimal(product, beta=10):
+def dijkstra_plan_optimal(product, beta=10, start_set=None):
 	start = time.time()
 	#print 'dijkstra plan started!'
 	runs = {}
 	accept_set = product.graph['accept']
-	init_set = product.graph['initial']
+	if start_set == None:
+		init_set = product.graph['initial']
 	#print 'number of accepting states %d' %(len(accept_set))
 	#print 'number of initial states %d' %(len(init_set))
 	loop_dict = {}
@@ -142,7 +147,7 @@ def dijkstra_loop(product, prod_accep):
 	for (tail, cost) in dijkstra_targets(product, prod_accep, accept_pre_set):
 		if tail:
 			accep_pre = tail[-1]
-			paths[accep_pre] = tail
+			paths[accep_pre] = tail + prod_accep
 			costs[accep_pre] = cost + product.edge[accep_pre][prod_accep]['weight']
 	if costs:
 		min_pre = min(costs.keys(), key=lambda p: costs[p])
@@ -171,6 +176,68 @@ def compute_path_from_pre(pre, target):
 	path.reverse()
 	return path
 
+#===========================================
+#improve the current plan
+#===========================================
+def prod_states_given_history(product, trace):
+	S1 = set([q for q in product.graph[initial] if q[0]==trace[0]])
+	for p in trace[1:-1]:
+		S2 = set()
+		for f_node in S1:
+			for t_node in product.fly_successors_iter(f_node):
+				if t_node[0]==p:
+					S2.add(t_node)
+		S1 = S2.copy()
+	return S1
+
+
+def improve_plan_given_history(product, trace):
+	new_initial_set = prod_states_given_history(product, trace)
+	new_run, time =dijkstra_plan_optimal(product, 10, new_initial_set)
+	return new_run
+
+
+#===========================================
+#local revision, in case of system update
+#===========================================
+def validate_and_revise_after_ts_change(run, product, sense_info, com_info):
+	new_prefix = None
+	new_suffix = None
+	start = time.time()
+	changed_regs = product.graph['ts'].graph['region'].update_after_region_change(sense_info, com_info)
+	if changed_regs:
+		for (index, prod_edge) in enumerate(run.pre_prod_edges):
+			(f_ts_node, f_buchi_node) = prod_edge[0]
+			(t_ts_node, t_buchi_node) = prod_edge[1] 
+			succ_prod = set()
+			for prod_node_to, weight in product.graph['ts'].fly_successors_iter(f_ts_node):
+				succ_prod.add(prod_node_to)
+			if t_ts_node not in succ_prod:
+					print 'Oops, the current plan prefix contains invalid edges, need revision!'
+					new_prefix = dijkstra_revise_once(product, run.prefix, index)
+					break
+		for (index, prod_edge) in enumerate(run.suf_prod_edges):
+			(f_ts_node, f_buchi_node) = prod_edge[0]
+			(t_ts_node, t_buchi_node) = prod_edge[1] 
+			succ_prod = set()
+			for prod_node_to, weight in product.graph['ts'].fly_successors_iter(f_ts_node):
+				succ_prod.add(prod_node_to)
+			if t_ts_node not in succ_prod:
+					print 'Oops, the current plan suffix contains invalid edges, need revision!'
+					new_prefix = dijkstra_revise_once(product, run.suffix, index)
+					break
+		if new_prefix or new_suffix:
+			if new_prefix:
+				run.prefix = new_prefix
+			if new_suffix:
+				run.suffix = new_suffix
+			run.prod_run_to_prod_edges(product)
+			run.output(product)
+			print 'validate_and_revise_after_ts_change done in %.2fs' %(time.time()-start)
+		else:
+			print 'local revision failed'
+			return False
+
 
 def dijkstra_revise(product, run_segment, broken_edge_index):
 	suf_segment = run_segment[(broken_edge_index+1):-1]
@@ -182,54 +249,8 @@ def dijkstra_revise(product, run_segment, broken_edge_index):
 		new_run_segment = run_segment[0:(broken_edge_index-1)] + bridge + run_segment[(index+1):-1]
 		return new_run_segment
 
+
 def dijkstra_revise_once(product, run_segment, broken_edge_index):
 	for (bridge, cost) in dijkstra_targets(product, run_segment[broken_edge_index-1], set([run_segment[-1]])):
 		new_run_segment = run_segment[0:(broken_edge_index-1)] + bridge
 		return new_run_segment
-
-
-def validate_and_revise_after_ts_change(run, product, label_changed_ts_nodes, del_ts_edges):
-	new_prefix = None
-	new_suffix = None
-	start = time.time()
-	if label_changed_ts_nodes or del_ts_edges:
-		for (index, ts_edge) in enumerate(run.pre_ts_edges): 
-			if ts_edge in del_ts_edges:
-				print 'Oops, the current plan prefix contains invalid edges, need revision!'
-				new_prefix = dijkstra_revise_once(product, run.prefix, index)
-				break
-			if ts_edge[0] in label_changed_ts_nodes:
-				label = product.graph['ts'].node[ts_edge[0]]['label']
-				f_prod_node = run.pre_prod_edges[index][0]
-				f_buchi_node = product.node[f_prod_node]['buchi']
-				t_prod_node = run.pre_prod_edges[index][1]
-				t_buchi_node = product.node[t_prod_node]['buchi']
-				truth, dist = check_label_for_buchi_edge(product.graph['buchi'], label, f_buchi_node, t_buchi_node)
-				if not truth:
-					print 'Oops, the current plan prefix contains unsafe edges, need revision!'
-					new_prefix = dijkstra_revise_once(product, run.prefix, index)
-					break
-		for (index, ts_edge) in enumerate(run.suf_ts_edges): 
-			if ts_edge in del_ts_edges:
-				print 'Oops, the current plan suffix contains invalid edges, need revision!'
-				new_suffix = dijkstra_revise_once(product, run.suffix, index)
-				break
-			if ts_edge[0] in label_changed_ts_nodes:
-				label = product.graph['ts'].node[ts_edge[0]]['label']
-				f_prod_node = run.suf_prod_edges[index][0]
-				f_buchi_node = product.node[f_prod_node]['buchi']
-				t_prod_node = run.suf_prod_edges[index][1]
-				t_buchi_node = product.node[t_prod_node]['buchi']
-				truth, dist = check_label_for_buchi_edge(product.graph['buchi'], label, f_buchi_node, t_buchi_node)
-				if not truth:
-					print 'Oops, the current plan suffix contains unsafe edges, need revision!'
-					new_suffix = dijkstra_revise_once(product, run.suffix, index)
-					break
-		if new_prefix or new_suffix:
-			if new_prefix:
-				run.prefix = new_prefix
-			if new_suffix:
-				run.suffix = new_suffix
-			run.prod_run_to_prod_edges(product)
-			run.projection_to_ts(product)
-	print 'validate_and_revise_after_ts_change done in %.2fs' %(time.time()-start)
