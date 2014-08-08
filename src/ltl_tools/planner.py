@@ -45,7 +45,7 @@ class ltl_planner(object):
 		self.opt_log.append((self.Time, self.run.pre_plan, self.run.suf_plan, self.run.precost, self.run.sufcost, self.run.totalcost))
 		self.last_time = self.Time
 		self.acc_change = 0
-		self.index = 0
+		self.index = 1
 		self.segment = 'line'
 		self.next_move = self.run.pre_plan[self.index]
 		return plantime
