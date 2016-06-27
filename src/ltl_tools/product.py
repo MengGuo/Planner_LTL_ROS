@@ -6,7 +6,7 @@ from networkx.classes.digraph import DiGraph
 
 
 class ProdAut(DiGraph):
-	def __init__(self, ts, buchi, alpha=100):
+	def __init__(self, ts, buchi, alpha=1000):
 		DiGraph.__init__(self, ts=ts, buchi=buchi, alpha=alpha, initial=set(), accept=set(), type='ProdAut')
 
 	def build_full(self):
@@ -99,40 +99,40 @@ class ProdAut_Run(object):
 		self.sufcost = sufcost
 		self.totalcost = totalcost
 		#self.prod_run_to_prod_edges(product)
-		self.projection_to_ts(product)
-		#self.plan = chain(self.line, cycle(self.loop))
-		#self.plan = chain(self.loop)
+		self.plan_output(product)
 
-	def prod_run_to_prod_edges(self, product):
-		self.pre_prod_edges = zip(self.prefix[0:-2], self.prefix[1:-1])
-		self.suf_prod_edges = zip(self.suffix[0:-2], self.suffix[1:-1])
+	def prod_run_to_prod_edges(self):
+		self.pre_prod_edges = zip(self.prefix[0:-1], self.prefix[1:])
+		self.suf_prod_edges = zip(self.suffix[0:-1], self.suffix[1:])
+		#########
+		# line: a, b ,c , d, e, g 
+		# pre_plan: act_a, act_b, act_c, act_d, act_e, act_g
+		# loop: g, b, c, d, e, f, g
+		# suf_plan: act_b, act_c, act_d.., act_g
+		
 
-	def projection_to_ts(self, product):
+	def plan_output(self, product):
 		self.line = [product.node[node]['ts'] for node in self.prefix]
 		self.loop = [product.node[node]['ts'] for node in self.suffix]
-		self.pre_ts_edges = zip(self.line[0:-2], self.line[1:-1])
-		self.suf_ts_edges = zip(self.loop[0:-2], self.loop[1:-1])
-		# output plan
-		self.pre_plan = []
-		self.pre_plan.append(self.line[0][0]) 
+		self.pre_ts_edges = zip(self.line[0:-1], self.line[1:])
+		self.suf_ts_edges = zip(self.loop[0:-1], self.loop[1:])
+		# output plan --- for execution
+		self.pre_plan = [self.line[0][0],]
+		self.pre_plan_cost = [0,]
 		for ts_edge in self.pre_ts_edges:
 			if product.graph['ts'][ts_edge[0]][ts_edge[1]]['label'] == 'goto':
 				self.pre_plan.append(ts_edge[1][0]) # motion 
 			else:
 				self.pre_plan.append(ts_edge[1][1]) # action
-		self.suf_plan = []
-		self.suf_plan.append(self.loop[0][0]) 
+			self.pre_plan_cost.append(product.graph['ts'][ts_edge[0]][ts_edge[1]]['weight']) # cost 
+		self.suf_plan = list()
+		self.suf_plan_cost = [0,]
 		for ts_edge in self.suf_ts_edges:
 			if product.graph['ts'][ts_edge[0]][ts_edge[1]]['label'] == 'goto':
 				self.suf_plan.append(ts_edge[1][0]) # motion 
 			else:
 				self.suf_plan.append(ts_edge[1][1]) # action
-
-
-
-
-
-
+			self.suf_plan_cost.append(product.graph['ts'][ts_edge[0]][ts_edge[1]]['weight']) # cost
 
 
 

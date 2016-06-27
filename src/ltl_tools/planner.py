@@ -48,6 +48,7 @@ class ltl_planner(object):
 		self.index = 1
 		self.segment = 'line'
 		self.next_move = self.run.pre_plan[self.index]
+		self.next_state = self.run.line[self.index]
 		return plantime
 
 	def find_next_move(self):
@@ -70,20 +71,26 @@ class ltl_planner(object):
 				self.next_move = self.run.suf_plan[self.index]
 				return self.run.loop[self.index-1]
 
-	def update(self,object_name):
+	def update(self,object_name, region_label):
 		MotionFts = self.product.graph['ts'].graph['region']
-		cur_region = MotionFts.closest_node(self.cur_pose)
-		sense_info = dict()
-		sense_info['label'] = set([(cur_region,set([object_name,]),set()),]) 
-		changes = MotionFts.update_after_region_change(sense_info,None)
-		if changes:
-			return True
+		for ts_node in MotionFts.nodes_iter():
+			if object_name in MotionFts.node[ts_node]['label']:
+				MotionFts.node[ts_node]['label'].remove(object_name)	
+			if region_label in MotionFts.node[ts_node]['label']:
+				MotionFts.node[ts_node]['label'].add(object_name)
 
 	def replan(self):
 		self.run = improve_plan_given_history(self.product, self.trace)
 		self.index = 0
 		self.segment = 'line'
 		self.next_move = self.run.pre_plan[self.index]
+
+
+	def replan_simple(self):
+		self.product.graph['ts'].graph['region'].set_initial(self.pose)
+		self.product.graph['ts'].build_full()
+		self.product.build_full()
+		self.optimal(10)
 
 
 

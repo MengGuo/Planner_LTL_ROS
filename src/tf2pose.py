@@ -2,7 +2,7 @@
 import roslib
 roslib.load_manifest('ltl3')
 import rospy
-from ltl2.msg import pose
+from ltl3.msg import pose
 import math
 import tf
 from tf.transformations import euler_from_quaternion

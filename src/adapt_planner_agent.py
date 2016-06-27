@@ -2,40 +2,24 @@
 import roslib
 import numpy
 import Queue
-roslib.load_manifest('ltl3_NTUA')
+roslib.load_manifest('ltl3')
 import rospy
 from ltl3.msg import pose, activity, confirmation, knowledge
 from math import sqrt, cos, sin, radians
 import numpy
-from init import *
+from NTUA_init import *
 import sys
 
 from ltl_tools.ts import MotionFts, ActionModel, MotActModel
 from ltl_tools.planner import ltl_planner
 
-ac_POSE   = Queue.Queue(5)
-POSE = [0, 0, 0]
 
 confirm   = ['none', 0]
 object_name = None
+region = None
 
 def distance(pose1, pose2):
     return sqrt( (pose1[0]-pose2[0])**2+(pose1[1]-pose2[1])**2 )
-
-def pose_callback(data): # data = '(x, y, theta)' x, y in cm, theta in radians
-    global ac_POSE
-    global POSE
-    while ac_POSE.qsize() < 5:
-        # print "while loop"
-        ac_POSE.put([data.x, data.y, data.theta])
-        # print "inserting to FIFO queue", [data.x, data.y, data.theta]
-    else:
-        #print "else"
-        ac_POSE.get()
-        ac_POSE.put([data.x, data.y, data.theta])
-        # print "inserting to FIFO queue", [data.x, data.y, data.theta]
-        # print "qsize", ac_POSE.qsize()
-    POSE   = median_filter(ac_POSE)
 
 def confirm_callback(data):
     global confirm
@@ -46,43 +30,23 @@ def confirm_callback(data):
 
 def knowledge_callback(data):
     global object_name
+    global region
     object_name = data.object
-    print 'object [', object_name, '] detected!'
+    region = data.region
+    print 'object [', object_name, '] detected at', region
 
-def median_filter(raw_pose):
-    list_pose = list(raw_pose.queue)
-    x_list = [pose[0] for pose in list_pose]
-    median_x = numpy.median(x_list)
-    y_list = [pose[1] for pose in list_pose]
-    median_y = numpy.median(y_list)
-    theta_list = [pose[2] for pose in list_pose]
-    median_theta = numpy.median(theta_list)
-    return [median_x, median_y, median_theta]
-
-def check_dist(cur_pose, waypoint):
-    dist = distance(cur_pose, waypoint)
-    # print "dist", dist
-    if (dist <= 30.0):
-        # print "**********reached waypoint**********"
-        return True
-    return False
-
-def rotate_2d_vector(v, theta):
-    new_v = [0,0]
-    new_v[0] = cos(theta)*v[0] - sin(theta)*v[1]
-    new_v[1] = sin(theta)*v[0] + cos(theta)*v[1]
-    return new_v
 
 def planner(letter, ts, act, task):
     global POSE
     global c
     global confirm
+    global object_name
+    global region
     rospy.init_node('planner_%s' %letter)
     print 'Agent %s: planner started!' %(letter)
     ###### publish to
-    activity_pub   = rospy.Publisher('next_move_%s' %letter, activity)
+    activity_pub   = rospy.Publisher('next_move_%s' %letter, activity, queue_size=10)
     ###### subscribe to
-    rospy.Subscriber('cur_pose_%s' %letter, pose, pose_callback)
     rospy.Subscriber('activity_done_%s' %letter, confirmation, confirm_callback)
     rospy.Subscriber('knowledge_%s' %letter, knowledge, knowledge_callback)
     ####### agent information
@@ -90,24 +54,23 @@ def planner(letter, ts, act, task):
     k = 0
     flag   = 0
     full_model = MotActModel(ts, act)
+    #planner = ltl_planner(full_model, task, None)
     planner = ltl_planner(full_model, task, None)
     ####### initial plan synthesis
-    planner.optimal(10,'static')
+    planner.optimal(10)
     #######
     while not rospy.is_shutdown():
-        while not POSE:
-            rospy.sleep(0.1)
-        planner.cur_pose = POSE[0:2]
-        next_activity_bowser = activity()
         next_activity = activity()
         ###############  check for knowledge udpate
         if object_name:
             # konwledge detected
-            planner.update(object_name)
+            planner.update(object_name, region)
             print 'Agent %s: object incorporated in map!' %(letter,)
-            planner.replan()
+            planner.replan_simple()
+            object_name = None
         ############### send next move
         next_move = planner.next_move
+        next_state = planner.next_state
         ############### implement next activity
         if isinstance(next_move, str):
             # next activity is action
@@ -117,22 +80,29 @@ def planner(letter, ts, act, task):
             print 'Agent %s: next action %s!' %(letter, next_activity.type)
             while not ((confirm[0]==next_move) and (confirm[1]>0)):
                 activity_pub.publish(next_activity)
-                rospy.sleep(0.5)
+                rospy.sleep(0.06)
+            rospy.sleep(1)
+            confirm[1] = 0
             print 'Agent %s: action %s done!' %(letter, next_activity.type)
         else:
-            print 'Agent %s: next waypoint (%d,%d)!' %(letter, next_move[0], next_move[1])
-            while not (check_dist(POSE[0:2], next_move)):
-                relative_x = next_move[0]-POSE[0]
-                relative_y = next_move[1]-POSE[1]
-                relative_pose = [relative_x, relative_y]
-                oriented_relative_pose = rotate_2d_vector(relative_pose, -POSE[2])
+            print 'Agent %s: next waypoint (%.2f,%.2f)!' %(letter, next_move[0], next_move[1])
+            while not ((confirm[0]=='goto') and (confirm[1]>0)):
+                #relative_x = next_move[0]-POSE[0]
+                #relative_y = next_move[1]-POSE[1]
+                #relative_pose = [relative_x, relative_y]
+                #oriented_relative_pose = rotate_2d_vector(relative_pose, -POSE[2])
                 next_activity.type = 'goto'
-                next_activity.x = oriented_relative_pose[0]
-                next_activity.y = oriented_relative_pose[1]
+                #next_activity.x = oriented_relative_pose[0]
+                #next_activity.y = oriented_relative_pose[1]
+                next_activity.x = next_move[0]
+                next_activity.y = next_move[1]
                 activity_pub.publish(next_activity)
-                rospy.sleep(0.5)
-            print 'Agent %s: waypoint (%d,%d) reached!' %(letter, next_move[0], next_move[1])
-        planner.trace.append(planner.find_next_move())
+                rospy.sleep(0.06)
+            rospy.sleep(1)
+            confirm[1] = 0
+            print 'Agent %s: waypoint (%.2f,%.2f) reached!' %(letter, next_move[0], next_move[1])
+            planner.pose = [next_move[0], next_move[1]]
+        planner.find_next_move()    
 
 def planner_agent(agent_letter):
     if agent_letter in init:
