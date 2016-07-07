@@ -128,7 +128,7 @@ if __name__ == '__main__':
     ########
     if len(sys.argv) == 2:
         agent_letter = str(sys.argv[1])
-        # to run: python planner_agent.py OY
+        # to run: python planner.py OY
     ###############
     try:
         planner_agent(agent_letter)

@@ -75,7 +75,7 @@ init['PY']=(PY_motion, PY_action, PY_task)
 
 
 #=============================================
-# python adapt_planner_agent.py PY
+# python planner.py PY
 # when manually send a message to PY
 # rostopic pub -1 knowledge_PY ltl3/knowledge -- 'pyball' 'pyr3'
 # after PY updates plan, it moves to 'pyr3' to execute its action 'pypoint',
