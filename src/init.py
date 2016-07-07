@@ -1,127 +1,90 @@
-
 from ltl_tools.ts import MotionFts, ActionModel
-
-# # to trun python planner_agent.py B
-# specify the agent plans here
+#=======================================================
+# workspace layout for both agents
+#  pyr2         ||         oyr2
+#           pyr3||oyr3
+#               ||
+#  pyr1     pyr0||oyr0     oyr1
+# ======================================================
 init=dict()
-###################
-####### workspace dimension
-# 175
-# 105
-# 35
-#     40  120  200
-# x:  40, 120, 200
-# y: 35, 105, 175
-#####################################################
+#=======================================================
+# Model and task for Observing Youbot (OY)
+#  |         oyr2
+#  |oyr3
+#  |
+#  |oyr0     oyr1
+################ OY motion  ##################
+OY_node=[(0.01,0.01,0.0),(0.57,1.00,-1.57),(0.67,-0.38,-1.57),(-0.00,0.00,-2.6)]
+OY_label={
+    OY_node[0] : set(['oyr0']),
+    OY_node[1]: set(['oyr1',]),
+    OY_node[2]: set(['oyr2',]),
+    OY_node[3]: set(['oyr3',]),
+}
+OY_init_pose=OY_node[0]
+OY_symbols=set(['oyr0','oyr1','oyr2','oyr3'])
+OY_motion=MotionFts(OY_label,OY_symbols,'OY-workspace')
+OY_motion.set_initial(OY_init_pose)
+#B_edge=[(B_node[0],B_node[1]),(B_node[1],B_node[2]),(B_node[1],B_node[3]),(B_node[2],B_node[3]),(B_node[4],B_node[3]),(B_node[2],B_node[4])]
+OY_edge=[(OY_node[0],OY_node[1]),(OY_node[1],OY_node[2]),(OY_node[2],OY_node[3]),
+(OY_node[1],OY_node[3]),]
+OY_motion.add_un_edges(OY_edge,unit_cost=10.0)
+########### OY action ##########
+OY_action_label={
+             'oyobsgrasp': (100, 'oyball', set(['oyobsgrasp'])),
+            }
+OY_action = ActionModel(OY_action_label)
+########### OY task ############
+#OY_task = '(<> grasp) && ([]<> r1) && ([]<> r2)'
+OY_task = '<>(oyr1 && <> (oyr2 && <> oyobsgrasp)) && ([]<> oyr1) && ([]<> oyr2)'
+########### OY initialize ############
+init['OY']=(OY_motion, OY_action, OY_task)
 
 #=======================================================
-#=======================================================
-#=======================================================
-########### B motion ##########
-colormap = {'ball':'red', 'obs':'black','basket':'yellow'}
-B_symbols = colormap.keys()
-WIDTH = 240 # cm
-HEIGHT = 210 # cm
-N = 6.0
-RATE = 1/N
-B_init_pose = (WIDTH*RATE,HEIGHT*RATE);
-B_node_dict ={
-			# lower three rooms
-			(WIDTH*RATE,HEIGHT*RATE): set(['r1']),
-			(WIDTH*3*RATE,HEIGHT*RATE): set(['r2']),
-			(WIDTH*5*RATE,HEIGHT*RATE): set(['r3']),
-			# cooridor three parts
-			(WIDTH*RATE,HEIGHT*3*RATE): set(['c1','ball']),
-			(WIDTH*3*RATE,HEIGHT*3*RATE): set(['c2',]),
-			(WIDTH*5*RATE,HEIGHT*3*RATE): set(['c3']),
-			# upper three rooms
-			(WIDTH*RATE,HEIGHT*5*RATE): set(['r4',]),
-			(WIDTH*3*RATE,HEIGHT*5*RATE): set(['r5','basket']),
-			(WIDTH*5*RATE,HEIGHT*5*RATE): set(['r6']),
-			}
-B_motion = MotionFts(B_node_dict, B_symbols, 'office')
-B_motion.set_initial(B_init_pose)
-B_edge_list = [ # 1st column
-			 ((WIDTH*RATE,HEIGHT*RATE), (WIDTH*RATE,HEIGHT*3*RATE)),
-			 ((WIDTH*RATE,HEIGHT*3*RATE), (WIDTH*RATE,HEIGHT*5*RATE)),
-			 # 2nd row
-			 ((WIDTH*RATE,HEIGHT*3*RATE), (WIDTH*3*RATE,HEIGHT*3*RATE)),
-			 ((WIDTH*3*RATE,HEIGHT*3*RATE), (WIDTH*5*RATE,HEIGHT*3*RATE)),
-			 # 2nd column
-			 ((WIDTH*3*RATE,HEIGHT*RATE), (WIDTH*3*RATE,HEIGHT*3*RATE)),
-			 ((WIDTH*3*RATE,HEIGHT*3*RATE), (WIDTH*3*RATE,HEIGHT*5*RATE)),
-			 # 3rd column
-			 ((WIDTH*5*RATE,HEIGHT*RATE), (WIDTH*5*RATE,HEIGHT*3*RATE)),
-			 ((WIDTH*5*RATE,HEIGHT*3*RATE), (WIDTH*5*RATE,HEIGHT*5*RATE)),
-			 ]
-B_motion.add_un_edges(B_edge_list,unit_cost=0.1)
-###############################
-########### B action ##########
-B_action_dict={
-			 'grasp': (100, 'ball', set(['grasp'])),
-			 'throw': (60, 'basket', set(['throw']))
-			}
-B_action = ActionModel(B_action_dict)
-###############################
-########### B task ############
-B_task = '(<> (grasp && <> throw)) && (<>[] r1)'
-#B_task = '<> grasp && (<>[] r2)'
-#######################
-init['B']=(B_motion, B_action, B_task)
+# Model and task for Pointing Youbot (PY)
+#  pyr2         |
+#           pyr3|
+#               |
+#  pyr1     pyr0|
+########### PY motion  ##########
+PY_node=[(0.0,0.0,0.0),(-1.42,1.10,0.0),(-1.37,-0.35,0.0),(-0.50,0.00,-2.6)]
+PY_label={
+    PY_node[0]: set(['pyr0']),
+    PY_node[1]: set(['pyr1',]),
+    PY_node[2]: set(['pyr2',]),
+    PY_node[3]: set(['pyr3',]), #'pyball'
+}
+PY_init_pose=PY_node[0]
+PY_symbols=set(['pyr0','pyr1','pyr2','pyr3'])
+PY_motion=MotionFts(PY_label,PY_symbols,'PY-workspace')
+PY_motion.set_initial(PY_init_pose)
+#B_edge=[(B_node[0],B_node[1]),(B_node[1],B_node[2]),(B_node[1],B_node[3]),(B_node[2],B_node[3]),(B_node[4],B_node[3]),(B_node[2],B_node[4])]
+PY_edge=[(PY_node[0],PY_node[1]),(PY_node[1],PY_node[2]),(PY_node[2],PY_node[3]),
+(PY_node[1],PY_node[3]),]
+PY_motion.add_un_edges(PY_edge,unit_cost=10.0)
+########### PY action ##########
+PY_action_label={
+             'pypoint': (100, 'pyball', set(['pypoint'])),
+            }
+PY_action = ActionModel(PY_action_label)
+########### PY task ############
+#PY_task = '(<> grasp) && ([]<> r1) && ([]<> r2)'
+PY_task = '<>(pyr1 && (<> pyr2 && <> (pyr3 && <> pypoint))) && ([]<> pyr1) && ([]<> pyr2)'
+########### PY initialize ############
+init['PY']=(PY_motion, PY_action, PY_task)
 
-#####################################################
-#=======================================================
-#=======================================================
-#=======================================================
-########### C motion ##########
-colormap = {'ball':'red', 'obs':'black','basket':'yellow'}
-C_symbols = colormap.keys()
-WIDTH = 240 # cm
-HEIGHT = 210 # cm
-N = 6.0
-RATE = 1/N
-C_init_pose = (WIDTH*5*RATE,HEIGHT*1*RATE);
-C_node_dict ={
-			# lower three rooms
-			(WIDTH*RATE,HEIGHT*RATE): set(['r1']),
-			(WIDTH*3*RATE,HEIGHT*RATE): set(['r2']),
-			(WIDTH*5*RATE,HEIGHT*RATE): set(['r3']),
-			# cooridor three parts
-			(WIDTH*RATE,HEIGHT*3*RATE): set(['c1']),
-			(WIDTH*3*RATE,HEIGHT*3*RATE): set(['c2']),
-			(WIDTH*5*RATE,HEIGHT*3*RATE): set(['c3','cushion']),
-			# upper three rooms
-			(WIDTH*RATE,HEIGHT*5*RATE): set(['r4']),
-			(WIDTH*3*RATE,HEIGHT*5*RATE): set(['r5','basket']),
-			(WIDTH*5*RATE,HEIGHT*5*RATE): set(['r6']),
-			}
-C_motion = MotionFts(C_node_dict, C_symbols, 'office')
-C_motion.set_initial(C_init_pose)
-edge_list = [ # 1st column
-			 ((WIDTH*RATE,HEIGHT*RATE), (WIDTH*RATE,HEIGHT*3*RATE)),
-			 ((WIDTH*RATE,HEIGHT*3*RATE), (WIDTH*RATE,HEIGHT*5*RATE)),
-			 # 2nd row
-			 ((WIDTH*RATE,HEIGHT*3*RATE), (WIDTH*3*RATE,HEIGHT*3*RATE)),
-			 ((WIDTH*3*RATE,HEIGHT*3*RATE), (WIDTH*5*RATE,HEIGHT*3*RATE)),
-			 # 2nd column
-			 ((WIDTH*3*RATE,HEIGHT*RATE), (WIDTH*3*RATE,HEIGHT*3*RATE)),
-			 ((WIDTH*3*RATE,HEIGHT*3*RATE), (WIDTH*3*RATE,HEIGHT*5*RATE)),
-			 # 3rd column
-			 ((WIDTH*5*RATE,HEIGHT*RATE), (WIDTH*5*RATE,HEIGHT*3*RATE)),
-			 ((WIDTH*5*RATE,HEIGHT*3*RATE), (WIDTH*5*RATE,HEIGHT*5*RATE)),
-			 ]
-C_motion.add_un_edges(edge_list,unit_cost=0.1)
-###############################
-########### B action ##########
-C_action_dict={
-			 'grasp': (100, 'ball', set(['grasp'])),
-			 'throw': (60, 'basket', set(['throw'])),
-			 'crouch': (60, 'cushion', set(['crouch'])),
-			}
-C_action = ActionModel(C_action_dict)
-###############################
-########### B task ############
-C_task = '(<> (crouch && <> (throw))) && (<>[] r3)'
-#######################
-init['C']=(C_motion, C_action, C_task)
-#####################################################
+
+#=============================================
+# python adapt_planner_agent.py PY
+# when manually send a message to PY
+# rostopic pub -1 knowledge_PY ltl3/knowledge -- 'pyball' 'pyr3'
+# after PY updates plan, it moves to 'pyr3' to execute its action 'pypoint',
+# PY should publish message '['oyball', 'oyr3']' to topic 'knowledge_OY'
+# rostopic pub -1 knowledge_OY ltl3/knowledge -- 'oyball' 'oyr3'
+# then OY would update its plan, and moves to 'oyr3' to execute its action 'oyobsgrasp'
+
+
+#=========================================
+# for testing 
+# rostopic pub -1 activity_done_PY ltl3/confirmation -- '0' 'goto' '10'
+# rostopic pub -1 activity_done_OY ltl3/confirmation -- '0' 'goto' '10'

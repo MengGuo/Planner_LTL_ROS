@@ -7,25 +7,31 @@ import rospy
 from ltl3.msg import pose, activity, confirmation, knowledge
 from math import sqrt, cos, sin, radians
 import numpy
-from NTUA_init import *
+from init import *
 import sys
 
 from ltl_tools.ts import MotionFts, ActionModel, MotActModel
 from ltl_tools.planner import ltl_planner
 
 
-confirm   = ['none', 0]
+confirm   = ['none', 0, 0]
 object_name = None
 region = None
+header = 0
+confheader = 0
 
 def distance(pose1, pose2):
     return sqrt( (pose1[0]-pose2[0])**2+(pose1[1]-pose2[1])**2 )
 
 def confirm_callback(data):
     global confirm
+    global confheader
+
     name = data.name
     done = data.done
-    confirm = [name, done]
+    confheader = data.confheader
+
+    confirm = [name, done, confheader]
     print "confirm", confirm
 
 def knowledge_callback(data):
@@ -37,6 +43,7 @@ def knowledge_callback(data):
 
 
 def planner(letter, ts, act, task):
+    global header
     global POSE
     global c
     global confirm
@@ -54,8 +61,8 @@ def planner(letter, ts, act, task):
     k = 0
     flag   = 0
     full_model = MotActModel(ts, act)
+    planner = ltl_planner(full_model, None, task)
     #planner = ltl_planner(full_model, task, None)
-    planner = ltl_planner(full_model, task, None)
     ####### initial plan synthesis
     planner.optimal(10)
     #######
@@ -74,33 +81,38 @@ def planner(letter, ts, act, task):
         ############### implement next activity
         if isinstance(next_move, str):
             # next activity is action
+            next_activity.header = header
             next_activity.type = next_move
-            next_activity.x = 0
-            next_activity.y = 0
+            next_activity.x = -0.76
+            next_activity.y = 0.30
             print 'Agent %s: next action %s!' %(letter, next_activity.type)
-            while not ((confirm[0]==next_move) and (confirm[1]>0)):
+            while not ((confirm[0]==next_move) and (confirm[1]>0) and confirm[2] == header):
                 activity_pub.publish(next_activity)
                 rospy.sleep(0.06)
             rospy.sleep(1)
             confirm[1] = 0
+            header = header + 1
             print 'Agent %s: action %s done!' %(letter, next_activity.type)
         else:
-            print 'Agent %s: next waypoint (%.2f,%.2f)!' %(letter, next_move[0], next_move[1])
-            while not ((confirm[0]=='goto') and (confirm[1]>0)):
+            print 'Agent %s: next waypoint (%.2f,%.2f,%.2f)!' %(letter, next_move[0], next_move[1], next_move[2])
+            while not ((confirm[0]=='goto') and (confirm[1]>0) and confirm[2] == header):
                 #relative_x = next_move[0]-POSE[0]
                 #relative_y = next_move[1]-POSE[1]
                 #relative_pose = [relative_x, relative_y]
                 #oriented_relative_pose = rotate_2d_vector(relative_pose, -POSE[2])
                 next_activity.type = 'goto'
+                next_activity.header = header
                 #next_activity.x = oriented_relative_pose[0]
                 #next_activity.y = oriented_relative_pose[1]
                 next_activity.x = next_move[0]
                 next_activity.y = next_move[1]
+                next_activity.psi = next_move[2]
                 activity_pub.publish(next_activity)
                 rospy.sleep(0.06)
             rospy.sleep(1)
             confirm[1] = 0
-            print 'Agent %s: waypoint (%.2f,%.2f) reached!' %(letter, next_move[0], next_move[1])
+            header = header + 1
+            print 'Agent %s: waypoint (%.2f,%.2f,%.2f) reached!' %(letter, next_move[0], next_move[1], next_move[2])
             planner.pose = [next_move[0], next_move[1]]
         planner.find_next_move()    
 
@@ -116,7 +128,7 @@ if __name__ == '__main__':
     ########
     if len(sys.argv) == 2:
         agent_letter = str(sys.argv[1])
-        # to run: python planner_agent.py B
+        # to run: python planner_agent.py OY
     ###############
     try:
         planner_agent(agent_letter)
