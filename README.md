@@ -16,7 +16,11 @@ Features
 * Easy integration with any motion capture system or low-level motion controller.
 
 <p align="center">  
-  <img src="https://github.com/MengGuo/P_MDP_TG/blob/master/MDP_TG/figures/risk.png" width="800"/>
+  <img src="https://github.com/MengGuo/Planner_LTL_ROS/blob/master/src/figures/indep.png" width="800"/>
+</p>
+
+<p align="center">  
+  <img src="https://github.com/MengGuo/Planner_LTL_ROS/blob/master/src/figures/multi.jpg" width="800"/>
 </p>
 
 ----
