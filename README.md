@@ -15,6 +15,10 @@ Features
 * Fully support any feature included in the P_MAS_TG module.
 * Easy integration with any motion capture system or low-level motion controller.
 
+<p align="center">  
+  <img src="https://github.com/MengGuo/P_MDP_TG/blob/master/MDP_TG/figures/risk.png" width="800"/>
+</p>
+
 ----
 Usage
 ----
