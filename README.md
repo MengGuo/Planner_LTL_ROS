@@ -34,7 +34,9 @@ rospy.Subscriber('activity_done_%s' %letter, confirmation, confirm_callback)
 rospy.Subscriber('knowledge_%s' %letter, knowledge, knowledge_callback)
 ```
 
-* Two-cemera locationization system based on [ar_pose](http://wiki.ros.org/ar_pose), see [tf2pose_for_two.py](https://github.com/MengGuo/Planner_LTL_ROS/blob/master/src/tf2pose_for_two.py) for detials. 
+* Two-cemera locationization system based on [ar_pose](http://wiki.ros.org/ar_pose), see [tf2pose_for_two.py](https://github.com/MengGuo/Planner_LTL_ROS/blob/master/src/tf2pose_for_two.py) for detials.
+
+
 ----
 Usage
 ----
