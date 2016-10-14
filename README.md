@@ -24,7 +24,6 @@ Features
 * Easy integration with any motion capture system or low-level motion controller via ROS.
 
 ```python
-
 # publish to actuation modular for motion and action
 activity_pub = rospy.Publisher('next_move_%s' %letter, activity, queue_size=10)
 
@@ -35,13 +34,13 @@ rospy.Subscriber('activity_done_%s' %letter, confirmation, confirm_callback)
 rospy.Subscriber('knowledge_%s' %letter, knowledge, knowledge_callback)
 ```
 
-* 2-cemera locationization system based on [ar_pose](http://wiki.ros.org/ar_pose), see [tf2pose_for_two.py](https://github.com/MengGuo/Planner_LTL_ROS/blob/master/src/tf2pose_for_two.py) for detials. 
+* Two-cemera locationization system based on [ar_pose](http://wiki.ros.org/ar_pose), see [tf2pose_for_two.py](https://github.com/MengGuo/Planner_LTL_ROS/blob/master/src/tf2pose_for_two.py) for detials. 
 ----
 Usage
 ----
 * [P_MAS_TG](https://github.com/MengGuo/P_MAS_TG) module. See details for how to build your own case there. 
 * `catkin_make` in your `catkin_ws`
 * Check [init.py](https://github.com/MengGuo/Planner_LTL_ROS/blob/master/src/init.py) for defining agent models.
-* Run [planner.py https://github.com/MengGuo/Planner_LTL_ROS/blob/master/src/planner.py] under ROS with the robot name as arugment. 
+* Run [planner.py](https://github.com/MengGuo/Planner_LTL_ROS/blob/master/src/planner.py) under ROS with the robot name as arugment. 
 
 
